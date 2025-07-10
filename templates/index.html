@@ -4,16 +4,108 @@
     <title>Анализ ДТП</title>
     <meta charset="utf-8">
     <style>
-        body { font-family: Arial, sans-serif; margin: 0; padding: 0; }
-        #map { max-width: fit-content; margin-left: auto;  margin-right: auto;}
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        #map {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        .plot-container {
+            margin: 20px auto;
+            max-width: 1000px;
+        }
+
+        .half-width {
+            width: 48%;
+            display: inline-block;
+            vertical-align: top;
+        }
+
+        h2 {
+            margin-top: 30px;
+        }
+
+        .pie-plot {
+            width: 500px;
+            height: 400px;
+            margin: 0 auto;
+        }
+
+        .cluster-map {
+            margin-top: 40px;
+        }
     </style>
 </head>
 <body>
 <h1>DTP Analyzer</h1>
-<h2>Task 1</h2>
-    <div id="map">
-        {{ map|safe }}
+
+<h2>Task 1: Карта ДТП</h2>
+<div id="map">
+    {{ map|safe }}
+</div>
+
+<h2>Task 2: Временные показатели</h2>
+<div class="plot-container">
+    <h3>Анализ по годам</h3>
+    {{ year_plot|safe }}
+</div>
+
+<div class="plot-container">
+    <h3>Анализ по месяцам</h3>
+    {{ month_plot|safe }}
+</div>
+
+<div class="plot-container">
+    <h3>Анализ по дням</h3>
+    {{ day_plot|safe }}
+</div>
+
+<div class="plot-container">
+    <h3>Анализ по часам</h3>
+    {{ hour_plot|safe }}
+</div>
+
+<h2>Task 3: Дополнительные анализы</h2>
+<div class="plot-container">
+    <h3>Основные причины ДТП</h3>
+    {{ primary_factors|safe }}
+</div>
+
+<div class="half-width">
+    <h3>ДТП по дням недели</h3>
+    <div class="pie-plot">
+        {{ weekend_pie|safe }}
     </div>
-<h2>Task 2</h2>
+</div>
+
+<div class="half-width">
+    <h3>Типы травм</h3>
+    <div class="pie-plot">
+        {{ injury_pie|safe }}
+    </div>
+</div>
+<br>
+<br>
+<br>
+<h2 class="cluster-map">Task 4: Кластеризация ДТП</h2>
+<div class="plot-container">
+    {{ cluster_map|safe }}
+</div>
+<br>
+<br>
+<br>
+<div class="plot-container">
+    <h3>Распределение кластеров</h3>
+    {% if has_clusters %}
+    {{ cluster_dist|safe }}
+    {% else %}
+    <p>Данные о кластерах отсутствуют</p>
+    {% endif %}
+</div>
 </body>
 </html>
