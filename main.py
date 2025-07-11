@@ -12,7 +12,7 @@ app = FastAPI()
 templates = Jinja2Templates(directory="templates")
 
 try:
-    data = pd.read_csv("dataset.csv", encoding="windows-1252")
+    data = pd.read_csv("results.csv", encoding="windows-1252")
 except Exception as e:
     print(f"Ошибка загрузки данных: {e}")
     data = pd.DataFrame()
@@ -58,6 +58,7 @@ def generate_time_plots():
             showlegend=False,
             xaxis_tickangle=60,
             height=400,
+            width=700,
             margin=dict(l=20, r=20, t=40, b=20)
         )
 
@@ -148,47 +149,18 @@ def generate_injury_pie():
     return fig.to_html(full_html=False)
 
 
-def generate_cluster_map():
+def kmeans_cluster_map():
     if data.empty:
         return "<p>Нет данных для кластеризации</p>"
 
     try:
-        # Работаем с копией данных
         cluster_data = data.copy()
 
-        # Подготовка данных для кластеризации
-        le = LabelEncoder()
-        cluster_data['Primary Factor'] = le.fit_transform(cluster_data['Primary Factor'])
-        cluster_data['Weekend?'] = cluster_data['Weekend?'].map({'Weekday': 0, 'Weekend': 1})
-        cluster_data['Collision Type'] = le.fit_transform(cluster_data['Collision Type'])
-
-        injury_ohe = pd.get_dummies(cluster_data['Injury Type'], prefix='Injury', dtype=int)
-        cluster_data = pd.concat([cluster_data, injury_ohe], axis=1)
-        cluster_data.drop(['Injury Type', 'Reported_Location'], axis=1, inplace=True)
-
-        cluster_data = cluster_data.fillna(-1)
-        cluster_data = cluster_data[
-            (cluster_data['Latitude'].between(35, 45)) &
-            (cluster_data['Longitude'].between(-90, -80))
-            ]
-
-        pipe = Pipeline([
-            ('scaler', StandardScaler()),
-            ('kmeans', KMeans(n_clusters=10, random_state=42))
-        ])
-
-        # Создаем кластеры
-        cluster_data['Cluster'] = pipe.fit_predict(cluster_data[['Latitude', 'Longitude']])
-
-        # Сохраняем кластеры в основной DataFrame
-        data['Cluster'] = cluster_data['Cluster']
-
-        # Визуализация
         fig = px.scatter_map(
             data_frame=cluster_data,
             lat="Latitude",
             lon="Longitude",
-            color="Cluster",
+            color="KMeans_clusters",
             center={"lat": 39, "lon": -86.5},
             height=700,
             width=1200,
@@ -204,18 +176,186 @@ def generate_cluster_map():
         return f"<p>Ошибка кластеризации: {str(e)}</p>"
 
 
-def generate_cluster_distribution():
-    if 'Cluster' not in data.columns:
+def kmeans_cluster_distribution():
+    if 'KMeans_clusters' not in data.columns:
         return "<p>Кластеры не были созданы</p>"
 
-    cluster_counts = data['Cluster'].value_counts().reset_index()
-    cluster_counts.columns = ['Cluster', 'count']
+    cluster_counts = data['KMeans_clusters'].value_counts().reset_index()
+    cluster_counts.columns = ['KMeans_clusters', 'count']
 
     fig = px.pie(
         cluster_counts,
         values='count',
-        names='Cluster',
+        names='KMeans_clusters',
         title='Распределение ДТП по кластерам',
+        hole=0.3,
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        marker=dict(line=dict(color='#000000', width=1))
+    )
+
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+
+    return fig.to_html(full_html=False)
+
+def agglo_cluster_map():
+    if data.empty:
+        return "<p>Нет данных для кластеризации</p>"
+
+    try:
+        cluster_data = data.copy()
+
+        fig = px.scatter_map(
+            data_frame=cluster_data,
+            lat="Latitude",
+            lon="Longitude",
+            color="Agglo_clusters",
+            center={"lat": 39, "lon": -86.5},
+            height=700,
+            width=1200,
+            color_continuous_scale=px.colors.qualitative.Prism
+        )
+        fig.update_layout(
+            coloraxis_colorbar=dict(title="Кластер"),
+            margin=dict(l=0, r=0, t=0, b=0)
+        )
+        return fig.to_html(full_html=False)
+
+    except Exception as e:
+        return f"<p>Ошибка кластеризации: {str(e)}</p>"
+
+
+def agglo_cluster_distribution():
+    if 'Agglo_clusters' not in data.columns:
+        return "<p>Кластеры не были созданы</p>"
+
+    cluster_counts = data['Agglo_clusters'].value_counts().reset_index()
+    cluster_counts.columns = ['Agglo_clusters', 'count']
+
+    fig = px.pie(
+        cluster_counts,
+        values='count',
+        names='Agglo_clusters',
+        title='Распределение ДТП по кластерам',
+        hole=0.3,
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        marker=dict(line=dict(color='#000000', width=1))
+    )
+
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+
+    return fig.to_html(full_html=False)
+
+
+def birch_cluster_map():
+    if data.empty:
+        return "<p>Нет данных для кластеризации</p>"
+
+    try:
+        cluster_data = data.copy()
+
+        fig = px.scatter_map(
+            data_frame=cluster_data,
+            lat="Latitude",
+            lon="Longitude",
+            color="Birch_clusters",
+            center={"lat": 39, "lon": -86.5},
+            height=700,
+            width=1200,
+            color_continuous_scale=px.colors.qualitative.Prism
+        )
+        fig.update_layout(
+            coloraxis_colorbar=dict(title="Кластер"),
+            margin=dict(l=0, r=0, t=0, b=0)
+        )
+        return fig.to_html(full_html=False)
+
+    except Exception as e:
+        return f"<p>Ошибка кластеризации: {str(e)}</p>"
+
+
+def birch_cluster_distribution():
+    if 'Birch_clusters' not in data.columns:
+        return "<p>Кластеры не были созданы</p>"
+
+    cluster_counts = data['Birch_clusters'].value_counts().reset_index()
+    cluster_counts.columns = ['Birch_clusters', 'count']
+
+    fig = px.pie(
+        cluster_counts,
+        values='count',
+        names='Birch_clusters',
+        hole=0.3,
+        color_discrete_sequence=px.colors.qualitative.Set3
+    )
+
+    fig.update_traces(
+        textposition='inside',
+        textinfo='percent+label',
+        marker=dict(line=dict(color='#000000', width=1))
+    )
+
+    fig.update_layout(
+        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1),
+        margin=dict(l=20, r=20, t=40, b=20)
+    )
+
+    return fig.to_html(full_html=False)
+
+
+def gauss_cluster_map():
+    if data.empty:
+        return "<p>Нет данных для кластеризации</p>"
+
+    try:
+        cluster_data = data.copy()
+
+        fig = px.scatter_map(
+            data_frame=cluster_data,
+            lat="Latitude",
+            lon="Longitude",
+            color="Gauss_clusters",
+            center={"lat": 39, "lon": -86.5},
+            height=700,
+            width=1200,
+            color_continuous_scale=px.colors.qualitative.Prism
+        )
+        fig.update_layout(
+            coloraxis_colorbar=dict(title="Кластер"),
+            margin=dict(l=0, r=0, t=0, b=0)
+        )
+        return fig.to_html(full_html=False)
+
+    except Exception as e:
+        return f"<p>Ошибка кластеризации: {str(e)}</p>"
+
+
+def gauss_cluster_distribution():
+    if 'Gauss_clusters' not in data.columns:
+        return "<p>Кластеры не были созданы</p>"
+
+    cluster_counts = data['Gauss_clusters'].value_counts().reset_index()
+    cluster_counts.columns = ['Gauss_clusters', 'count']
+
+    fig = px.pie(
+        cluster_counts,
+        values='count',
+        names='Gauss_clusters',
         hole=0.3,
         color_discrete_sequence=px.colors.qualitative.Set3
     )
@@ -238,17 +378,36 @@ def generate_cluster_distribution():
 async def read_root(request: Request):
     map_html = generate_map()
     time_plots = generate_time_plots()
-    cluster_map_html = generate_cluster_map()
-    cluster_dist_html = generate_cluster_distribution()
+    cluster_map_html = kmeans_cluster_map()
+    cluster_dist_html = kmeans_cluster_distribution()
+    agglo_map_html = agglo_cluster_map()
+    agglo_dist_html = agglo_cluster_distribution()
+    birch_map_html = birch_cluster_map()
+    birch_dist_html = birch_cluster_distribution()
+    gauss_map_html = gauss_cluster_map()
+    gauss_dist_html = gauss_cluster_distribution()
 
-    has_clusters = 'Cluster' in data.columns
+
+    has_clusters = 'KMeans_clusters' in data.columns
+    has_agglo = 'Agglo_clusters' in data.columns
+    has_birch = 'Birch_clusters' in data.columns
+    has_gauss = 'Gauss_clusters' in data.columns
 
     context = {
         "request": request,
         "map": map_html,
         "cluster_map": cluster_map_html,
         "cluster_dist": cluster_dist_html,
+        "agglo_map": agglo_map_html,
+        "agglo_dist": agglo_dist_html,
+        "birch_map": birch_map_html,
+        "birch_dist": birch_dist_html,
+        "gauss_map": gauss_map_html,
+        "gauss_dist": gauss_dist_html,
         "has_clusters": has_clusters,  # Добавляем флаг
+        "has_agglo_clusters": has_agglo,
+        "has_birch_clusters": has_birch,
+        "has_gauss_clusters": has_gauss,
         "year_plot": time_plots.get('Year', ''),
         "month_plot": time_plots.get('Month', ''),
         "day_plot": time_plots.get('Day', ''),
