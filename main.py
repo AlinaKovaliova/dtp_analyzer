@@ -6,6 +6,7 @@ import plotly.express as px
 from sklearn.cluster import KMeans
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 from sklearn.pipeline import Pipeline
+from typing import List
 
 app = FastAPI()
 
@@ -374,6 +375,89 @@ def gauss_cluster_distribution():
     return fig.to_html(full_html=False)
 
 
+
+def cluster_factor_analysis(cluster_type: str, cluster_num: int):
+    if cluster_type not in data.columns:
+        return "<p>Данные кластеризации не найдены</p>"
+    
+    try:
+        factors = data[data[cluster_type] == cluster_num]['Primary Factor'].value_counts().reset_index(name='count').head(20)
+        
+        fig = px.bar(
+            factors,
+            x='count',
+            y='Primary Factor',
+            orientation='h',
+            title=f'Топ факторов ДТП для кластера {cluster_num}',
+            color='count',
+            color_continuous_scale=px.colors.sequential.Blues
+        )
+        
+        fig.update_layout(
+            yaxis={'categoryorder':'total ascending'},
+            margin=dict(l=100, r=20, t=40, b=20)
+        )
+        
+        return fig.to_html(full_html=False)
+    
+    except Exception as e:
+        return f"<p>Ошибка анализа факторов: {str(e)}</p>"
+
+
+def cluster_injury_analysis(cluster_type: str, cluster_num: int):
+    if cluster_type not in data.columns:
+        return "<p>Данные кластеризации не найдены</p>"
+    
+    try:
+        injuries = data[data[cluster_type] == cluster_num]['Injury Type'].value_counts().reset_index(name='count').head(10)
+        
+        fig = px.pie(
+            injuries,
+            values='count',
+            names='Injury Type',
+            title=f'Типы травм для кластера {cluster_num}',
+            hole=0.3
+        )
+        
+        fig.update_traces(
+            textposition='inside',
+            textinfo='percent+label',
+            marker=dict(line=dict(color='#000000', width=1))
+        )
+        
+        return fig.to_html(full_html=False)
+    
+    except Exception as e:
+        return f"<p>Ошибка анализа травм: {str(e)}</p>"
+
+
+def cluster_month_analysis(cluster_type: str, cluster_num: int, year: int):
+    if cluster_type not in data.columns:
+        return "<p>Данные кластеризации не найдены</p>"
+    
+    try:
+        months_data = data[(data[cluster_type] == cluster_num) & (data['Year'] == year)]
+        if months_data.empty:
+            return "<p>Нет данных для выбранного года</p>"
+            
+        months = months_data['Month'].value_counts().reset_index(name='count')
+        
+        fig = px.bar(
+            months,
+            x='Month',
+            y='count',
+            title=f'ДТП по месяцам для кластера {cluster_num} в {year} году',
+            color='count',
+            color_continuous_scale=px.colors.sequential.Viridis
+        )
+        
+        return fig.to_html(full_html=False)
+    
+    except Exception as e:
+        return f"<p>Ошибка анализа по месяцам: {str(e)}</p>"
+
+
+
 @app.get("/", response_class=HTMLResponse)
 async def read_root(request: Request):
     map_html = generate_map()
@@ -418,6 +502,61 @@ async def read_root(request: Request):
     }
 
     return templates.TemplateResponse("index.html", context)
+
+
+
+@app.get("/cluster_analysis", response_class=HTMLResponse)
+async def cluster_analysis(
+    request: Request,
+    cluster_type: str = "KMeans_clusters",
+    cluster_num: int = 0,
+    year: int = None
+):
+    # Устанавливаем текущий год по умолчанию
+    if year is None:
+        year = 2010
+    
+    # Получаем данные для выпадающих списков
+    available_years = sorted(data['Year'].unique()) if 'Year' in data.columns else []
+    
+    # Генерируем аналитику для выбранного кластера
+    factors_html = cluster_factor_analysis(cluster_type, cluster_num)
+    injuries_html = cluster_injury_analysis(cluster_type, cluster_num)
+    months_html = cluster_month_analysis(cluster_type, cluster_num, year)
+    
+    # Проверяем, какие методы кластеризации доступны
+    available_methods = {
+        "KMeans_clusters": "K-Means",
+        "Agglo_clusters": "Agglomerative",
+        "Birch_clusters": "BIRCH",
+        "Gauss_clusters": "Gaussian Mixture"
+    }
+    
+    # Оставляем только те методы, которые есть в данных
+    available_methods = {k: v for k, v in available_methods.items() if k in data.columns}
+    
+    context = {
+        "request": request,
+        "cluster_factors": factors_html,
+        "cluster_injuries": injuries_html,
+        "cluster_months": months_html,
+        "available_methods": available_methods,
+        "available_years": available_years,
+        "selected_method": cluster_type,
+        "selected_cluster": cluster_num,
+        "selected_year": year,
+        "available_clusters": get_available_clusters(cluster_type)
+    }
+    
+    return templates.TemplateResponse("cluster_analysis.html", context)
+
+def get_available_clusters(cluster_type: str) -> List[int]:
+    """Возвращает список доступных номеров кластеров для выбранного метода"""
+    if cluster_type not in data.columns:
+        return []
+    return sorted(data[cluster_type].unique())
+
+
 
 if __name__ == "__main__":
     import uvicorn
